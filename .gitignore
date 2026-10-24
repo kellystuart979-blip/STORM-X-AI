@@ -1,0 +1,14 @@
+# secrets - NEVER push
+.env.local
+.env
+
+# dependencies
+node_modules
+
+# build
+.next
+out
+dist
+
+# logs
+npm-debug.log*
