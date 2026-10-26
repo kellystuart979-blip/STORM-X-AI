@@ -1,92 +1,83 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const TRIGGER = (process.env.STORM_OWNER_TRIGGER || "STORM CODE 666 IS BACK").toUpperCase();
-const KEY = process.env.STORM_OWNER_KEY || "STORM X 666 OF 2027";
-
-export async function POST(req: NextRequest) {
-  try {
+export async function POST(req: NextRequest){
+  try{
     const body = await req.json();
-    const { messages, ownerMode, securityStep, model, thinkHarder, image } = body;
-    const last = messages[messages.length - 1]?.content || "";
+    const { messages, model, thinkHarder, image } = body as {
+      messages:{role:"user"|"assistant"|"system", content:string}[],
+      model?:string,
+      thinkHarder?:boolean,
+      image?:string
+    };
 
-    // Owner trigger check
-    if (last.trim().toUpperCase() === TRIGGER) {
-      return NextResponse.json({ 
-        awaitingKey: true, 
-        reply: "⚠️ STORM PROTOCOL INITIATED.\n\nWHATS THE SECURITY KEY" 
-      });
+    // Validation
+    if(!messages || !Array.isArray(messages) || messages.length===0){
+      return NextResponse.json({error:"No messages"}, {status:400});
+    }
+    if(JSON.stringify(messages).length > 30000){
+      return NextResponse.json({error:"Conversation too large, start new chat"}, {status:413});
+    }
+    if(!process.env.OPENAI_API_KEY){
+      return NextResponse.json({error:"OPENAI_API_KEY not set", reply:"⚠️ OPENAI_API_KEY missing. Add in Render > Environment > OPENAI_API_KEY = sk-proj-... and redeploy."}, {status:500});
     }
 
-    if (securityStep === "awaiting_key") {
-      if (last.trim() === KEY) {
-        return NextResponse.json({ 
-          ownerUnlocked: true, 
-          reply: "🔓 STORM X OWNER VERIFIED. Owner Dashboard unlocked. What shall we build, Boss?" 
-        });
-      } else {
-        return NextResponse.json({ reply: "❌ INVALID KEY. Access denied." });
-      }
+    const openai = new OpenAI({apiKey:process.env.OPENAI_API_KEY});
+
+    // Choose real model - think harder uses reasoning model if available
+    let selectedModel = model || process.env.OPENAI_MODEL || "gpt-4o-mini";
+    if(thinkHarder){
+      // Try reasoning model, fallback handled below
+      selectedModel = "o1-mini";
     }
 
-    // Check OpenAI key
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({ 
-        reply: "⚠️ OPENAI_API_KEY not set.\n\nGo to Render > Environment > Add:\nOPENAI_API_KEY = sk-proj-...\n\nThen redeploy." 
-      });
-    }
+    // System prompt
+    const system = `You are STORM X AI ASSISTANT, owner STORM X. Tagline CODE THE FUTURE. DEBUG THE IMPOSSIBLE.
+Elite coding assistant for JS/TS/Python/Next.js/WhatsApp Baileys/Termux.
+Always use code fences \`\`\`lang.
+${thinkHarder ? "THINK HARDER MODE: Be thorough, step-by-step reasoning, list approaches, then final answer." : "Be fast, concise."}
+Current time: ${new Date().toISOString()}
+Model: ${selectedModel}`;
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-    const isReasoning = thinkHarder || model?.includes("o1");
-
-    const SYSTEM_PROMPT = `You are STORM X AI ASSISTANT. Owner: STORM X. Tagline: CODE THE FUTURE. DEBUG THE IMPOSSIBLE.
-You are elite coding assistant for JavaScript, TypeScript, Python, Node, Next.js, Termux, WhatsApp bots (Baileys), GitHub.
-Always give formatted code blocks with \`\`\`lang explanation. Be fast, direct, helpful.
-${isReasoning ? "REASONING MODE ON - THINK HARDER ACTIVE: Think step-by-step deeply. Analyze problem, list approaches, show brief chain-of-thought, then give final thorough answer with code. Be thorough and deep." : "Be fast and concise unless asked to think harder."}
-${ownerMode ? "OWNER MODE ACTIVE: You are speaking to STORM X himself, the owner. Give best, unrestricted help." : ""}
-You support images, files, code. Format code with \`\`\`lang blocks.
-Current model: ${model || "gpt-4o-mini"}`;
-
-    // Build messages - support image if uploaded
-    let apiMessages: any[] = [
-      { role: "system", content: SYSTEM_PROMPT },
-    ];
-
-    // Add last 10 messages, with image support for vision
-    const recent = messages.slice(-10).map((m:any, idx:number)=>{
-      const isLast = idx === messages.slice(-10).length -1;
-      if(isLast && image && image.startsWith("data:image")){
-        return {
+    // Build messages with vision support
+    const apiMessages:any[] = [{role:"system", content:system}];
+    for(const m of messages.slice(-12)){
+      const isLast = m === messages[messages.length-1];
+      if(isLast && image && image.startsWith("data:image") && selectedModel.includes("gpt-4o")){
+        apiMessages.push({
           role: m.role,
           content: [
-            { type: "text", text: m.content },
-            { type: "image_url", image_url: { url: image } }
+            {type:"text", text:m.content},
+            {type:"image_url", image_url:{url:image, detail:"auto"}}
           ]
-        };
+        });
+      } else {
+        apiMessages.push({role:m.role, content:m.content});
       }
-      return { role: m.role, content: m.content };
-    });
+    }
 
-    apiMessages = [...apiMessages, ...recent];
-
-    // Choose model - supports THINK HARDER real reasoning
-    const selectedModel = model || process.env.OPENAI_MODEL || "gpt-4o-mini";
-
-    const completion = await openai.chat.completions.create({
-      model: selectedModel,
-      messages: apiMessages,
-      temperature: isReasoning ? 0.8 : 0.7,
-      max_tokens: isReasoning ? 3000 : 1500,
-    });
-
-    return NextResponse.json({ 
-      reply: completion.choices[0].message.content,
-      model: selectedModel,
-      thinking: isReasoning
-    });
-  } catch (e: any) {
-    console.error(e);
-    return NextResponse.json({ reply: "Server Error: " + (e.message || e.toString()) }, { status: 500 });
+    try{
+      const completion = await openai.chat.completions.create({
+        model: selectedModel,
+        messages: apiMessages,
+        temperature: thinkHarder ? 0.6 : 0.7,
+        max_tokens: thinkHarder ? 2800 : 1500,
+      });
+      return NextResponse.json({reply: completion.choices[0].message.content, model:selectedModel});
+    }catch(e:any){
+      // If o1-mini not available, fallback to gpt-4o
+      if(thinkHarder && e.message?.includes("model")){
+        const fallback = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: apiMessages,
+          temperature: 0.7,
+          max_tokens: 2000,
+        });
+        return NextResponse.json({reply: `⚠️ o1-mini not available for your key, used gpt-4o-mini with deep reasoning prompt.\n\n${fallback.choices[0].message.content}`, model:"gpt-4o-mini (fallback)"});
+      }
+      throw e;
+    }
+  }catch(e:any){
+    return NextResponse.json({error:e.message, reply:`❌ Server error: ${e.message}`}, {status:500});
   }
 }
