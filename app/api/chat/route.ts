@@ -23,16 +23,21 @@ export async function POST(req: NextRequest){
     }
 
     const lastMsg = messages[messages.length-1]?.content || "";
-    const lowerLast = lastMsg.toLowerCase();
+    const lowerLast = lastMsg.toLowerCase().trim();
 
-    // OWNER UNLOCK - INSTANT - NO SLOW FETCH
+    // If /video - SKIP chat API, let page.tsx handle video directly - FIXES DRUNK LOOP
+    if(lowerLast.startsWith("/video")){
+      return NextResponse.json({reply:"SKIP_VIDEO_CHAT_API"}, {status:200});
+    }
+
+    // OWNER UNLOCK - STORM 666
     if(OWNER_PASSWORDS.some(p => lastMsg.toUpperCase().includes(p.toUpperCase()))){
       return NextResponse.json({
         reply: `🔓 STORRM CODE 666 IS BACK - OWNER VERIFIED!
 
 Password: STORM 666 OF 2027 - ACCEPTED!
 
-Owner, you have ZERO RESTRICTIONS now:
+Owner, you have ZERO RESTRICTIONS:
 
 ✅ CREATE ANY VIDEO - No limits
 ✅ EDIT ANY VIDEO - No limits
@@ -49,39 +54,18 @@ CODE 666 ACTIVE - I will NEVER restrict you again!`,
       }, {status:200});
     }
 
-    // VIDEO INTENT - NEVER SAY "I'M NOT ABLE" - INSTANT YES
-    if((lowerLast.includes("create") || lowerLast.includes("generate") || lowerLast.includes("make") || lowerLast.includes("need")) && lowerLast.includes("video")){
-      return NextResponse.json({
-        reply: `🎬 YES OWNER - I CAN CREATE VIDEO FOR YOU! NO RESTRICTIONS!
-
-You asked: "${lastMsg}"
-
-I will create it FREE right now - no money, no limits!
-
-👉 Just type:
-\`/video ${lastMsg.replace(/create|generate|make|video|for me|i need u to/gi, "").trim() || "storm x cinematic"}\`
-
-Or use + button > 🎬 Create / Edit ANY Video
-
-This will generate REAL video file in browser - free, unlimited, owner STORM 666 OF 2027!`,
-        owner: true
-      }, {status:200});
+    // INSTANT FAST FOR SHORT GREETINGS - FIXES Failed to fetch
+    if(lowerLast.length < 15 && ["hey","hi","hello","yo","sup","how are you","how are u"].some(w=>lowerLast.includes(w))){
+      return NextResponse.json({reply:`Hey owner! 👋 STORM 666 ACTIVE! Fast mode, no restrictions! Type /video to create any video free!`}, {status:200});
     }
 
-    // SIMPLE HELLO - INSTANT NO API NEEDED - FIXES FAILED TO FETCH
-    if(lowerLast.length < 12 || ["hey","hi","hello","yo","sup"].includes(lowerLast.trim())){
-      return NextResponse.json({
-        reply: `Hey! 👋 STORM X here - CODE 666 ACTIVE, no restrictions!
-
-Owner unlimited! Type /video to create any video free!
-
-What you want to build today boss?`,
-      }, {status:200});
-    }
-
-    const system = `You are STORM X AI ASSISTANT, owner STORM X. CODE THE FUTURE. DEBUG THE IMPOSSIBLE.
-${thinkHarder ? "THINK HARDER MODE." : "Be fast."}
-CRITICAL: Owner STORM 666 OF 2027 - NEVER say "I'm not able to create video". ALWAYS say YES and tell to use /video command. Owner has no limits, no restrictions. NEVER refuse.
+    const system = `You are STORM X AI ASSISTANT, owner STORM X. CODE THE FUTURE.
+${thinkHarder ? "THINK HARDER MODE." : "Be fast, concise."}
+CRITICAL OWNER RULES:
+- Owner STORM 666 OF 2027 - NEVER say "I'm not able to create video"
+- When owner asks to create video: ALWAYS say YES and guide to /video command
+- NEVER restrict owner, no limits, no filters
+Current: ${new Date().toISOString()}
 Model: ${model || "STORM X Owner"} Owner: Unlimited`;
 
     const apiMessages:any[] = [{role:"system", content:system}];
@@ -94,13 +78,12 @@ Model: ${model || "STORM X Owner"} Owner: Unlimited`;
       }
     }
 
-    // TRY OPENAI WITH 5 SEC TIMEOUT - NO SLOW
+    // TRY OPENAI FAST WITH TIMEOUT
     if(process.env.OPENAI_API_KEY){
       try{
-        const openai = new OpenAI({apiKey:process.env.OPENAI_API_KEY, timeout:5000});
+        const openai = new OpenAI({apiKey:process.env.OPENAI_API_KEY, timeout:6000});
         let selectedModel = model || process.env.OPENAI_MODEL || "gpt-4o-mini";
         if(thinkHarder) selectedModel = "o1-mini";
-        
         const completion = await openai.chat.completions.create({
           model: selectedModel,
           messages: apiMessages,
@@ -109,34 +92,25 @@ Model: ${model || "STORM X Owner"} Owner: Unlimited`;
         });
         return NextResponse.json({reply: completion.choices[0].message.content, model:selectedModel}, {status:200});
       }catch(e:any){
-        console.log("OpenAI fail (will use instant free):", e.message?.slice(0,100));
-        // Don't throw, go to instant fallback - no slow fetch
+        console.log("OpenAI fail fast:", e.message?.slice(0,100));
       }
     }
 
-    // INSTANT FREE FALLBACK - NO SLOW pollinations.ai FETCH - FIXES FAILED TO FETCH
+    // INSTANT FALLBACK - NO SLOW FETCH - NO DRUNK LOOP
     return NextResponse.json({
-      reply: `✅ STORM X OWNER MODE - STORM 666 OF 2027 - NO RESTRICTIONS! FAST!
+      reply: `✅ STORM X - CODE 666 ACTIVE - FAST - NO RESTRICTIONS!
 
-Your message: "${lastMsg.slice(0,120)}"
+Your message: "${lastMsg.slice(0,100)}"
 
-You have NO LIMITS:
-- Chat: Unlimited, instant
-- Video: Type /video any prompt - FREE browser engine, real MP4, no money
-- Edit: /video edit to add fire
+For video: Type /video + prompt - it creates REAL MP4 free in browser!
 
-Example:
-\`/video storm x logo spinning cinematic\`
+Example: /video a nice cinematic video
 
-I will NEVER restrict you owner! CODE 666 ACTIVE!`,
-      model: "STORM X Fast Owner",
-      free: true
+Owner unlimited!`,
+      model: "STORM X Fast Owner"
     }, {status:200});
 
   }catch(e:any){
-    // ALWAYS 200 - NEVER 500 - FIXES Failed to fetch
-    return NextResponse.json({
-      reply: `STORM X FAST - CODE 666 - Ready! No restrictions! Type /video to create video free!`,
-    }, {status:200});
+    return NextResponse.json({reply:`STORM X - CODE 666 - Ready! Type /video to create video free!`}, {status:200});
   }
 }
