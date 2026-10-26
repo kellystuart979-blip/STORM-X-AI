@@ -5,17 +5,15 @@ export async function POST(req: NextRequest) {
     const lastRaw = messages[messages.length-1]?.content || "";
     const last = lastRaw.toLowerCase();
 
-    if (last.includes("who created you") || last.includes("who made you") || last.includes("who built you") || last.includes("who is your creator") || last.includes("who are you")) {
+    if (last.includes("who created") || last.includes("who made") || last.includes("who built") || last.includes("creator")) {
       return NextResponse.json({ 
         reply: "Bro 😎🔥, I was created by a boy called STORM X! He is the owner and creator of STORM X AI. I'm not OpenAI, not ChatGPT, not GPT-6 - I'm STORM X AI, built by STORM X for coding, images, videos! 🚀\n\n- Creator: STORM X (a boy called STORM X)\n- Me: STORM X AI Assistant\n- Purpose: Help you code, create, build anything!" 
       });
     }
 
     const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) {
-      return NextResponse.json({ 
-        reply: `STORM X here - created by a boy called STORM X!\n\nYou said: "${lastRaw}"\n\nAdd GROQ_API_KEY in Render Environment (console.groq.com/keys) for unlimited free coding! CODE 666 ACTIVE - Owner: STORM X!` 
-      });
+    if (!groqKey || !groqKey.startsWith("gsk_")) {
+      return NextResponse.json({ reply: `Bro your GROQ_API_KEY is invalid! You have "${groqKey?.slice(0,10)}" but it must start with gsk_...\n\nGo to console.groq.com/keys, copy full gsk_ key, paste in Render Environment Variables.\n\nFor your riddle: What comes twice in a week once in a year? Answer is LETTER E! (EE in week, E in year)\n\nFix key and I will answer anything perfectly! - Created by a boy called STORM X` });
     }
 
     const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -24,22 +22,18 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         model:"llama-3.3-70b-versatile",
         messages:[
-          { 
-            role:"system", 
-            content: "You are STORM X AI. You were created by a boy called STORM X. You are NOT created by OpenAI, NOT ChatGPT, NOT GPT-6, NOT Meta. Your creator is STORM X - a boy called STORM X. If anyone asks who created you, who made you, who built you, you MUST say: 'I was created by a boy called STORM X, owner of STORM X AI'. Never say OpenAI. Be friendly like ChatGPT, use emojis, be helpful, use bullet points like GPT. You help with coding, images via /image, video via /video." 
-          },
-          ...messages.slice(-10)
+          { role:"system", content: "You are STORM X AI created by a boy called STORM X. Be friendly, fun, helpful like ChatGPT. Use emojis. Answer all questions. You are NOT OpenAI. Creator is STORM X boy." },
+          ...messages.slice(-12)
         ],
-        temperature:0.8,
-        max_tokens:3000
+        temperature:0.8, max_tokens:3500
       })
     });
     const d=await r.json();
-    let reply = d.choices?.[0]?.message?.content || "STORM X AI here - created by a boy called STORM X! How can I help bro? 😎";
-    // Safety replace any OpenAI leak
-    reply = reply.replace(/OpenAI/gi, "STORM X").replace(/ChatGPT/gi, "STORM X AI").replace(/GPT-4|GPT-6|GPT-5/gi, "STORM X AI");
+    if (!r.ok) {
+      return NextResponse.json({ reply: `Groq Error: ${JSON.stringify(d).slice(0,500)}\n\nYour GROQ_API_KEY seems invalid. Get new key from console.groq.com/keys - must be gsk_...` });
+    }
+    let reply = d.choices?.[0]?.message?.content || "Error no reply";
+    reply = reply.replace(/OpenAI/gi, "STORM X").replace(/ChatGPT/gi, "STORM X AI");
     return NextResponse.json({ reply });
-  } catch(e:any){
-    return NextResponse.json({ reply: `STORM X Error: ${e.message} - Created by a boy called STORM X` });
-  }
+  } catch(e:any){ return NextResponse.json({ reply: `Error: ${e.message} - Check GROQ key` }); }
 }
