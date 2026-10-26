@@ -41,11 +41,10 @@ export default function Page(){
   useEffect(()=>{ endRef.current?.scrollIntoView({behavior:"smooth"}); },[msgs, loading]);
 
   const newChat = ()=>{ const id=Date.now()+""; setConvos(p=>[{id, title:"New chat", messages:[]}, ...p]); setActiveId(id); setSidebar(false); };
-  const stopGen = ()=>{ abortRef.current?.abort(); setLoading(false); };
 
   const startSTT = ()=>{
     const R=(window as any).webkitSpeechRecognition||(window as any).SpeechRecognition;
-    if(!R){ alert("Voice not supported on this browser, use Chrome Android"); return; }
+    if(!R){ alert("Voice not supported"); return; }
     const rec = new R(); rec.lang="en-US"; rec.interimResults=false; rec.start(); setListening(true);
     rec.onresult=(e:any)=>{ setInput(e.results[0][0].transcript); setListening(false); };
     rec.onerror=()=> setListening(false);
@@ -100,19 +99,15 @@ export default function Page(){
   };
 
   return (
-    <div className="h-[100dvh] w-screen flex bg-black text-white overflow-hidden select-none">
-      {/* Sidebar */}
-      <aside className={`fixed z-30 h-full w-[270px] bg-[#171717] transition ${sidebar?"translate-x-0":"-translate-x-full md:translate-x-0 md:${activeId?"hidden":"flex"} w-[270px]" } flex flex-col`}>
+    <div className="h-[100dvh] w-screen flex bg-black text-white overflow-hidden">
+      <aside className={sidebar ? "fixed z-30 h-full w-[270px] bg-[#171717] flex flex-col translate-x-0" : "fixed z-30 h-full w-[270px] bg-[#171717] flex flex-col -translate-x-full md:translate-x-0"}>
         <div className="p-3 flex flex-col h-full">
           <div className="flex justify-between items-center"><div className="flex gap-2 items-center"><div className="w-7 h-7 rounded-full bg-white text-black grid place-items-center font-bold text-xs">S</div><span className="text-sm font-semibold">STORM X</span></div><button onClick={()=>setSidebar(false)} className="w-8 h-8 text-zinc-400">✕</button></div>
           <button onClick={newChat} className="mt-4 w-full bg-[#212121] rounded-full py-2.5 text-sm">+ New chat</button>
           <div className="flex-1 overflow-y-auto mt-4 space-y-1 text-sm">{convos.map(c=><div key={c.id} className={`flex justify-between px-3 py-2 rounded-lg hover:bg-[#212121] ${activeId===c.id?"bg-[#212121]":""}`}><span onClick={()=>{setActiveId(c.id); setSidebar(false);}} className="truncate">{c.title}</span><span onClick={()=>setConvos(p=>p.filter(x=>x.id!==c.id))} className="text-zinc-500">×</span></div>)}</div>
         </div>
       </aside>
-
-      {/* Main */}
       <div className="flex-1 flex flex-col bg-black min-w-0 relative">
-        {/* Header like your 3rd pic - Get Plus */}
         <div className="h-[56px] flex items-center justify-between px-3">
           <div className="flex gap-2 items-center">
             <button onClick={()=>setSidebar(!sidebar)} className="w-9 h-9 rounded-full bg-[#2f2f2f] grid place-items-center">☰</button>
@@ -126,8 +121,6 @@ export default function Page(){
             <button onClick={speakLast} className="w-9 h-9 rounded-full bg-[#2f2f2f]">◐</button>
           </div>
         </div>
-
-        {/* Chat Area - pure black like ChatGPT */}
         <div className="flex-1 overflow-y-auto">
           {msgs.length===0 ? <div className="h-full"/> : (
             <div className="max-w-[760px] mx-auto px-4 py-6 space-y-6">
@@ -145,8 +138,6 @@ export default function Page(){
             </div>
           )}
         </div>
-
-        {/* Bottom Input - EXACT like 3rd pic you circled blue */}
         <div className="p-3 pb-[env(safe-area-inset-bottom)]">
           <div className="max-w-[760px] mx-auto">
             {showPlus && (
@@ -162,22 +153,16 @@ export default function Page(){
               <input ref={fileRef} type="file" accept="image/*,text/*,.json,.js,.ts" hidden onChange={handleFile}/>
               <input value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"){ e.preventDefault(); send(); }}} placeholder={imageMode?"Describe image...":"Ask anything"} className="flex-1 bg-transparent outline-none text-[15px] placeholder-zinc-400"/>
               <button onClick={startSTT} className={`w-8 h-8 rounded-full grid place-items-center ${listening?"bg-red-500":"bg-transparent"}`}>🎤</button>
-              {/* BLUE ARROW like you circled */}
               <button onClick={()=>send()} className={`w-8 h-8 rounded-full grid place-items-center font-bold ${input.trim() ? "bg-[#5aa8ff] text-black" : "bg-[#5a5a5a] text-zinc-300"}`}>↑</button>
             </div>
           </div>
         </div>
-
-        {/* VOICE MODE - EXACT like your pics 1 & 2 */}
         {voiceMode && (
           <div className="absolute inset-0 z-50 bg-black flex flex-col">
-            {/* Top bar - like pic 2 */}
             <div className="h-[56px] flex justify-between items-center px-4">
               <button onClick={()=>setVoiceMode(false)} className="w-10 h-10 rounded-full bg-[#2f2f2f] grid place-items-center">☰</button>
               <button onClick={()=>setVoiceSettings(!voiceSettings)} className="w-10 h-10 rounded-full bg-[#2f2f2f] grid place-items-center">⚙️</button>
             </div>
-
-            {/* Center ORB - like your pic 2 - animated blue */}
             <div className="flex-1 flex flex-col items-center justify-center">
               <div className="relative w-[260px] h-[260px] rounded-full overflow-hidden bg-gradient-to-b from-[#1a3a7a] via-[#5a7fd0] to-[#a0b8e8] animate-pulse shadow-[0_0_80px_rgba(90,168,255,0.5)]">
                 <div className="absolute inset-0 bg-gradient-to-t from-white/60 to-transparent rounded-full blur-[1px]"/>
@@ -186,20 +171,16 @@ export default function Page(){
               {loading && <div className="mt-10 text-[14px] text-zinc-400">Poor connection</div>}
               {!loading && <div className="mt-10 text-[14px] text-zinc-500">Listening • {voiceName}</div>}
             </div>
-
-            {/* Bottom bar - like pic 2 */}
             <div className="p-4 pb-[calc(16px+env(safe-area-inset-bottom))] flex items-center gap-3 justify-center">
               <div className="flex-1 max-w-[520px] bg-[#2f2f2f] rounded-full flex items-center gap-2 px-3 py-3">
                 <span className="w-8 h-8 rounded-full bg-[#3a3a3a] grid place-items-center">+</span>
                 <input placeholder="Ask ChatGPT" className="flex-1 bg-transparent outline-none text-[15px]" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{ if(e.key==="Enter"){ send(); setVoiceMode(false); }}}/>
               </div>
               <button onClick={startSTT} className="w-12 h-12 rounded-full bg-[#2f2f2f] grid place-items-center">🎤</button>
-              <button onClick={()=>{ setVoiceMode(false); speechSynthesis.cancel(); }} className="w-12 h-12 rounded-full bg-white text-black grid place-items-center text-xl font-bold">✕</button>
+              <button onClick={()=>{ setVoiceMode(false); }} className="w-12 h-12 rounded-full bg-white text-black grid place-items-center text-xl font-bold">✕</button>
             </div>
-
-            {/* Settings Sheet - like your pic 1 */}
             {voiceSettings && (
-              <div className="absolute bottom-0 left-0 right-0 bg-[#2f2f2f] rounded-t-[24px] p-4 animate-in slide-in-from-bottom">
+              <div className="absolute bottom-0 left-0 right-0 bg-[#2f2f2f] rounded-t-[24px] p-4">
                 <div className="w-10 h-1 bg-zinc-600 rounded-full mx-auto mb-4"/>
                 <h3 className="text-center font-semibold mb-4">Settings</h3>
                 <div className="bg-[#1e1e1e] rounded-[20px] overflow-hidden border border-zinc-700">
@@ -216,8 +197,6 @@ export default function Page(){
           </div>
         )}
       </div>
-
-      {/* Floating voice button to enter mode */}
       {!voiceMode && (
         <button onClick={()=>setVoiceMode(true)} className="fixed bottom-[80px] right-4 w-14 h-14 rounded-full bg-white text-black shadow-2xl grid place-items-center text-xl md:hidden">◐</button>
       )}
