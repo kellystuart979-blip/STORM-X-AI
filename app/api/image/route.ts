@@ -1,30 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 
-export async function POST(req:NextRequest){
+export async function POST(req: NextRequest){
   try{
     const { prompt } = await req.json();
-    if(!prompt || typeof prompt!=="string" || prompt.trim().length<3){
-      return NextResponse.json({error:"Prompt too short, need 3+ chars"}, {status:400});
-    }
-    if(prompt.length>1000){
-      return NextResponse.json({error:"Prompt too long, max 1000 chars"}, {status:413});
-    }
-    if(!process.env.OPENAI_API_KEY){
-      return NextResponse.json({error:"Missing env OPENAI_API_KEY. Add in Render > Environment > OPENAI_API_KEY"}, {status:500});
-    }
-    const openai = new OpenAI({apiKey:process.env.OPENAI_API_KEY});
-    const res = await openai.images.generate({
-      model:"dall-e-3",
-      prompt: prompt.trim().slice(0,1000),
-      size:"1024x1024",
-      quality:"standard",
-      n:1,
-    });
-    const image = res.data?.[0]?.url;
-    if(!image) return NextResponse.json({error:"No image from provider, check billing"}, {status:500});
-    return NextResponse.json({image});
+    if(!prompt) return NextResponse.json({error:"No prompt"}, {status:400});
+    
+    // FREE IMAGE - Pollinations - no key, no money, unlimited for owner
+    const encoded = encodeURIComponent(prompt);
+    const imageUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&nologo=true`;
+    
+    // Fetch image and return as base64 for your UI
+    const res = await fetch(imageUrl);
+    if(!res.ok) throw new Error("Free image fail");
+    const buffer = await res.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+    const dataUrl = `data:image/jpeg;base64,${base64}`;
+
+    return NextResponse.json({image: dataUrl, prompt, free: true}, {status:200});
   }catch(e:any){
-    return NextResponse.json({error:e.message || "Image generation failed - needs OpenAI billing for DALL·E 3"}, {status:500});
+    return NextResponse.json({error: e.message}, {status:200});
   }
 }
